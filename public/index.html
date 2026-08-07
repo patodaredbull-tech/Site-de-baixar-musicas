@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🎵 Biblioteca de Músicas</title>
+  <style>
+    :root {
+      --bg: #0f0f1a; --surface: #1a1a2e; --border: #2a2a4a;
+      --accent: #6c63ff; --accent2: #2a9d6a; --danger: #d53a3a;
+      --gold: #d4a017; --text: #e0e0f0; --muted: #666;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 16px; }
+    .container { max-width: 760px; margin: 0 auto; }
+
+    /* ── Header ── */
+    header { text-align: center; margin-bottom: 20px; }
+    h1 { font-size: 1.6rem; margin-bottom: 4px; }
+    .subtitle { color: var(--muted); font-size: 0.82rem; }
+
+    /* ── Status bar ── */
+    .status-bar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;
+      font-size: 0.82rem;
+    }
+    .status-badge {
+      padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+    }
+    .status-badge.online { background: #1a3a2a; color: #5fd07a; border: 1px solid #2a5a3a; }
+    .status-badge.offline { background: #3a2a1a; color: #d07a5f; border: 1px solid #5a3a2a; }
+    .status-badge .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+    .status-badge.online .dot { background: #5fd07a; }
+    .status-badge.offline .dot { background: #d07a5f; }
+    .status-info { color: var(--muted); }
+
+    /* ── Download Panel ── */
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    .panel h2 { font-size: 0.95rem; color: var(--accent); margin-bottom: 12px; }
+
+    .input-row { display: flex; gap: 8px; }
+    .input-row input {
+      flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 14px; color: var(--text); font-size: 0.9rem;
+    }
+    .input-row input:focus { outline: none; border-color: var(--accent); }
+
+    .btn {
+      background: var(--accent); color: white; border: none; border-radius: 8px;
+      padding: 10px 18px; cursor: pointer; font-size: 0.88rem; font-weight: 600;
+      transition: background 0.15s, transform 0.1s; white-space: nowrap;
+    }
+    .btn:hover { background: #5a52d5; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { background: #3a3a5a; color: #666; cursor: not-allowed; }
+    .btn.green { background: var(--accent2); }
+    .btn.green:hover { background: #228b5a; }
+    .btn.danger { background: var(--danger); }
+    .btn.danger:hover { background: #c52a2a; }
+    .btn.gold { background: var(--gold); color: #1a1a2e; }
+    .btn.gold:hover { background: #c09015; }
+    .btn-sm { padding: 5px 12px; font-size: 0.8rem; border-radius: 6px; }
+
+    .progress-log {
+      background: #0a0a14; border-radius: 8px; padding: 12px; font-family: 'Consolas', monospace;
+      font-size: 0.78rem; color: #8f8; max-height: 180px; overflow-y: auto;
+      margin-top: 10px; display: none;
+    }
+    .progress-log.visible { display: block; }
+    .progress-log .log-line { margin-bottom: 2px; }
+    .progress-log .skipped { color: #fa0; }
+    .progress-log .error { color: #f88; }
+    .progress-log .done { color: #8f8; }
+
+    /* ── Music List ── */
+    .list-header { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+    .list-header input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; color: var(--text); font-size: 0.85rem; }
+    .list-header input:focus { outline: none; border-color: var(--accent); }
+    .list-header .label { font-size: 0.8rem; color: var(--muted); display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
+
+    .stats-row { font-size: 0.75rem; color: #555; margin-bottom: 8px; display: flex; gap: 16px; }
+
+    .music-list { display: flex; flex-direction: column; gap: 4px; max-height: 55vh; overflow-y: auto; }
+
+    .music-item {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 9px 12px; transition: border-color 0.15s, opacity 0.2s;
+    }
+    .music-item:hover { border-color: #3a3a6a; }
+    .music-item.selected { border-color: var(--accent); background: #1a1a3a; }
+    .music-item.pending-delete { opacity: 0.4; pointer-events: none; }
+    .music-item input[type="checkbox"] { accent-color: var(--accent); transform: scale(1.2); flex-shrink: 0; }
+    .music-info { flex: 1; min-width: 0; }
+    .music-name { font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .music-meta { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.68rem; font-weight: 600; margin-right: 4px; }
+    .badge-LOCAL { background: #1a3a2a; color: #5fd07a; }
+    .badge-GITHUB { background: #2a2a4a; color: #a0a0ff; }
+    .badge-new { background: var(--accent); color: white; animation: pulse 1s ease-in-out; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .music-actions { display: flex; gap: 5px; flex-shrink: 0; }
+    .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 0.9rem; }
+    .loading { text-align: center; padding: 30px; color: var(--muted); }
+
+    /* ── Bulk actions bar ── */
+    .bulk-bar {
+      display: none; gap: 8px; align-items: center; flex-wrap: wrap;
+      background: #1a1a3a; border: 1px solid var(--accent); border-radius: 10px;
+      padding: 10px 14px; margin-bottom: 10px;
+    }
+    .bulk-bar.visible { display: flex; }
+    .bulk-bar .bulk-info { font-size: 0.82rem; flex: 1; }
+    .bulk-bar .bulk-actions { display: flex; gap: 6px; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      z-index: 200; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 24px; max-width: 420px; width: 100%; text-align: center;
+    }
+    .modal h3 { font-size: 1.05rem; margin-bottom: 10px; }
+    .modal p { font-size: 0.85rem; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+    .modal .modal-files { background: #0a0a14; border-radius: 8px; padding: 10px; margin-bottom: 16px; max-height: 120px; overflow-y: auto; font-size: 0.78rem; color: #aaa; text-align: left; }
+    .modal .modal-files div { padding: 2px 0; }
+    .modal .modal-actions { display: flex; gap: 8px; justify-content: center; }
+    .modal .btn { min-width: 100px; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--accent2); color: white; padding: 10px 20px; border-radius: 10px;
+      font-size: 0.85rem; z-index: 300; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { background: var(--danger); }
+    .toast.warn { background: var(--gold); color: #1a1a2e; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 500px) {
+      body { padding: 10px; }
+      .input-row { flex-direction: column; }
+      .bulk-bar { flex-direction: column; }
+      .bulk-actions { width: 100%; }
+      .bulk-actions .btn { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎵 Biblioteca de Músicas</h1>
+      <p class="subtitle">patodaredbull-tech / Site-de-baixar-musicas</p>
+    </header>
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <span class="status-badge" id="serverBadge">
+        <span class="dot"></span>Detectando servidor...
+      </span>
+      <span class="status-info" id="statusInfo">—</span>
+    </div>
+
+    <!-- Download panel (only when server online) -->
+    <div class="panel" id="downloadPanel" style="display:none">
+      <h2>⬇️ Baixar Música / Playlist</h2>
+      <div class="input-row">
+        <input type="text" id="urlInput" placeholder="Cole o link do YouTube (vídeo ou playlist)..." />
+        <button class="btn green" id="downloadBtn" onclick="doDownload()">Baixar</button>
+      </div>
+      <div class="progress-log" id="progressLog"></div>
+    </div>
+
+    <!-- Offline notice -->
+    <div class="panel" id="offlinePanel" style="display:none">
+      <h2>🌐 Modo Offline</h2>
+      <p style="font-size:0.85rem; color:var(--muted); line-height:1.6; margin-bottom:12px">
+        O servidor local não está rodando. Você pode baixar músicas que já estão no repo,
+        ou solicitar novos downloads via <strong>GitHub Actions</strong>.
+      </p>
+      <button class="btn green" onclick="openActions()">🚀 Solicitar via GitHub Actions</button>
+    </div>
+
+    <!-- Bulk actions bar -->
+    <div class="bulk-bar" id="bulkBar">
+      <span class="bulk-info" id="bulkInfo">0 selecionadas</span>
+      <div class="bulk-actions">
+        <button class="btn gold btn-sm" id="bulkDownloadBtn" onclick="downloadSelected()">⬇️ Baixar</button>
+        <button class="btn danger btn-sm" onclick="confirmDelete()">🗑️ Excluir</button>
+        <button class="btn btn-sm" style="background:#3a3a5a" onclick="clearSelection()">✕ Limpar</button>
+      </div>
+    </div>
+
+    <!-- Music list -->
+    <div class="list-header">
+      <input type="text" id="searchInput" placeholder="Buscar..." oninput="renderMusic()" style="flex:1" />
+      <label class="label">
+        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" /> Todos
+      </label>
+    </div>
+    <div class="stats-row">
+      <span id="totalCount">Carregando...</span>
+    </div>
+    <div class="music-list" id="musicList">
+      <div class="loading">⏳ Carregando biblioteca...</div>
+    </div>
+  </div>
+
+  <!-- Delete confirmation modal -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+      <h3>🗑️ Confirmar Exclusão</h3>
+      <p>Excluir as seguintes músicas do GitHub? Esta ação não pode ser desfeita.</p>
+      <div class="modal-files" id="modalFiles"></div>
+      <div class="modal-actions">
+        <button class="btn" style="background:#3a3a5a" onclick="closeModal()">Cancelar</button>
+        <button class="btn danger" id="confirmDeleteBtn" onclick="doDelete()">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────
+const OWNER = 'patodaredbull-tech';
+const REPO = 'Site-de-baixar-musicas';
+const BRANCH = 'main';
+const SERVER_PORT = 3000;
+
+// ─── State ────────────────────────────────────────────────────────────────
+let serverOnline = false;
+let es = null;               // SSE connection
+let allMusic = [];           // {name, path, size, source, videoId, _id, _pendingDelete}
+let selectedIds = new Set();
+let newIds = new Set();      // recently added via SSE (flash badge)
+
+// ─── Init ────────────────────────────────────────────────────────────────
+async function init() {
+  await checkServer();
+  await loadMusic();
+  if (serverOnline) connectSSE();
+}
+
+// ─── Server detection ──────────────────────────────────────────────────────
+async function checkServer() {
+  const badge = document.getElementById('serverBadge');
+  const info = document.getElementById('statusInfo');
+  try {
+    const res = await fetch(`http://localhost:${SERVER_PORT}/api/status`);
+    if (res.ok) {
+      const data = await res.json();
+      serverOnline = true;
+      badge.className = 'status-badge online';
+      badge.innerHTML = '<span class="dot"></span>Servidor Online';
+      info.textContent = `${data.downloadedCount} tracks em cache`;
+      document.getElementById('downloadPanel').style.display = 'block';
+      document.getElementById('offlinePanel').style.display = 'none';
+      document.getElementById('bulkDownloadBtn').style.display = 'inline-block';
+      return;
+    }
+  } catch {}
+  serverOnline = false;
+  badge.className = 'status-badge offline';
+  badge.innerHTML = '<span class="dot"></span>Servidor Offline';
+  info.textContent = 'Usando GitHub Pages (sem hot-reload)';
+  document.getElementById('downloadPanel').style.display = 'none';
+  document.getElementById('offlinePanel').style.display = 'block';
+  document.getElementById('bulkDownloadBtn').style.display = serverOnline ? 'inline-block' : 'none';
+}
+
+// ─── SSE ──────────────────────────────────────────────────────────────────
+function connectSSE() {
+  if (es) { try { es.close(); } catch {} }
+  es = new EventSource(`http://localhost:${SERVER_PORT}/api/sse`);
+
+  es.addEventListener('connected', e => {
+    toast('🔗 Conectado ao servidor', 'warn');
+  });
+
+  es.addEventListener('download-start', e => {
+    appendLog(`⬇️  Baixando: ${e.videoId}`, 'log');
+  });
+
+  es.addEventListener('download-done', e => {
+    appendLog(`✅  ${e.filename}`, 'done');
+    // Hot-reload: add to list
+    const exists = allMusic.find(m => m.name === e.filename);
+    if (!exists) {
+      allMusic.unshift({
+        name: e.filename,
+        path: `/downloads/${e.filename}`,
+        size: null,
+        source: 'local',
+        videoId: e.videoId,
+        _id: Date.now(),
+        _new: true
+      });
+      allMusic.sort((a, b) => a.name.localeCompare(b.name));
+      newIds.add(e.filename);
+      renderMusic();
+      setTimeout(() => newIds.delete(e.filename), 3000);
+    }
+  });
+
+  es.addEventListener('download-error', e => {
+    appendLog(`❌  Erro [${e.videoId}]: ${e.error.substring(0, 80)}`, 'error');
+  });
+
+  es.addEventListener('download-skipped', e => {
+    appendLog(`⏭️  Pulado: ${e.title}`, 'skipped');
+  });
+
+  es.addEventListener('playlist-start', e => {
+    appendLog(`📋 Playlist iniciada: ${e.url}`, 'log');
+  });
+
+  es.addEventListener('playlist-done', e => {
+    appendLog(`✅ Playlist completa: ${e.results.length} músicas processadas`, 'done');
+    loadMusic();
+  });
+
+  es.addEventListener('files-deleted', e => {
+    toast(`🗑️ ${e.results.filter(r=>r.status==='deleted').length} arquivo(s) excluído(s)`);
+    loadMusic();
+  });
+
+  es.onerror = () => {
+    es.close();
+    es = null;
+    serverOnline = false;
+    const badge = document.getElementById('serverBadge');
+    badge.className = 'status-badge offline';
+    badge.innerHTML = '<span class="dot"></span>Servidor Offline (conexão perdida)';
+    document.getElementById('downloadPanel').style.display = 'none';
+    document.getElementById('offlinePanel').style.display = 'block';
+    document.getElementById('bulkDownloadBtn').style.display = 'none';
+    // Re-attempt reconnect in 10s
+    setTimeout(checkServer, 10000);
+  };
+}
+
+// ─── Load music ────────────────────────────────────────────────────────────
+async function loadMusic() {
+  const list = document.getElementById('musicList');
+  list.innerHTML = '<div class="loading">⏳ Carregando...</div>';
+
+  try {
+    if (serverOnline) {
+      const res = await fetch(`http://localhost:${SERVER_PORT}/api/music`);
+      const data = await res.json();
+      allMusic = (data.all || []).map((m, i) => ({ ...m, _id: i }));
+    } else {
+      const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents?ref=${BRANCH}`);
+      const files = await res.json();
+      allMusic = (files || [])
+        .filter(f => f.name.endsWith('.mp3'))
+        .map((f, i) => ({
+          name: f.name,
+          path: f.download_url || `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${f.name}`,
+          size: f.size,
+          source: 'github',
+          videoId: f.name.match(/^([a-zA-Z0-9_-]{11})_/)?.[1] || null,
+          sha: f.sha,
+          _id: i
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    }
+    renderMusic();
+  } catch (e) {
+    list.innerHTML = `<div class="empty">Erro ao carregar: ${e.message}</div>`;
+  }
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────
+function renderMusic() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = allMusic.filter(m =>
+    !m._pendingDelete && formatName(m.name).toLowerCase().includes(search)
+  );
+  const list = document.getElementById('musicList');
+  const totalSpan = document.getElementById('totalCount');
+
+  totalSpan.textContent = `${allMusic.length} músicas · ${allMusic.filter(m=>!m._pendingDelete).length} visíveis`;
+
+  if (allMusic.length === 0) {
+    list.innerHTML = '<div class="empty">Nenhuma música no repo. Use o campo acima para baixar!</div>';
+    return;
+  }
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty">Nenhuma música encontrada.</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(m => {
+    const isNew = newIds.has(m.name);
+    const badgeClass = isNew ? 'badge badge-new' : (m.source === 'local' ? 'badge badge-LOCAL' : 'badge badge-GITHUB');
+    const badgeText = isNew ? 'NOVO' : (m.source === 'local' ? 'LOCAL' : 'GITHUB');
+    return `
+      <div class="music-item${selectedIds.has(m._id) ? ' selected' : ''}${m._pendingDelete ? ' pending-delete' : ''}" data-id="${m._id}">
+        <input type="checkbox" ${selectedIds.has(m._id) ? 'checked' : ''}
+          onchange="toggleSelect(${m._id})" ${m._pendingDelete ? 'disabled' : ''} />
+        <div class="music-info">
+          <div class="music-name" title="${escAttr(m.name)}">${formatName(m.name)}</div>
+          <div class="music-meta">
+            <span class="${badgeClass}">${badgeText}</span>
+            ${m.size ? formatSize(m.size) : ''}
+          </div>
+        </div>
+        <div class="music-actions">
+          <button class="btn btn-sm" style="background:#3a7bd5" onclick="downloadOne('${escAttr(m.name)}')">⬇️</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  updateBulkBar();
+}
+
+// ─── Selection ─────────────────────────────────────────────────────────────
+function toggleSelect(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  renderMusic();
+}
+
+function toggleSelectAll() {
+  const checked = document.getElementById('selectAll').checked;
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  allMusic
+    .filter(m => !m._pendingDelete && formatName(m.name).toLowerCase().includes(search))
+    .forEach(m => checked ? selectedIds.add(m._id) : selectedIds.delete(m._id));
+  renderMusic();
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  renderMusic();
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  const info = document.getElementById('bulkInfo');
+  const count = selectedIds.size;
+  if (count === 0) { bar.classList.remove('visible'); return; }
+  bar.classList.add('visible');
+  info.textContent = `${count} música${count > 1 ? 's' : ''} selecionada${count > 1 ? 's' : ''}`;
+}
+
+// ─── Download (single) ─────────────────────────────────────────────────────
+function downloadOne(name) {
+  const m = allMusic.find(x => x.name === name);
+  if (!m) return;
+  const url = m.source === 'local' ? m.path : m.path;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast(`Baixando: ${formatName(name)}`);
+}
+
+async function downloadSelected() {
+  if (!serverOnline) { toast('Servidor offline — use download individual', 'warn'); return; }
+  const selected = allMusic.filter(m => selectedIds.has(m._id) && !m._pendingDelete);
+  if (!selected.length) return;
+  for (const m of selected) {
+    downloadOne(m.name);
+    await sleep(300);
+  }
+  toast(`${selected.length} download(s) iniciado(s)!`);
+}
+
+// ─── Delete ────────────────────────────────────────────────────────────────
+function confirmDelete() {
+  if (!serverOnline) { toast('Exclusão só funciona com servidor online', 'warn'); return; }
+  const selected = allMusic.filter(m => selectedIds.has(m._id) && !m._pendingDelete);
+  if (!selected.length) return;
+
+  document.getElementById('modalFiles').innerHTML = selected
+    .map(m => `<div>• ${escHtml(formatName(m.name))}</div>`).join('');
+  document.getElementById('deleteModal').classList.add('visible');
+}
+
+function closeModal() {
+  document.getElementById('deleteModal').classList.remove('visible');
+}
+
+async function doDelete() {
+  const selected = allMusic.filter(m => selectedIds.has(m._id) && !m._pendingDelete);
+  if (!selected.length) return;
+
+  document.getElementById('confirmDeleteBtn').disabled = true;
+  closeModal();
+
+  // Optimistic UI: immediately hide from list
+  selected.forEach(m => m._pendingDelete = true);
+  renderMusic();
+  clearSelection();
+
+  try {
+    const res = await fetch(`http://localhost:${SERVER_PORT}/api/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ files: selected.map(m => m.name) })
+    });
+    const data = await res.json();
+    const deleted = data.results.filter(r => r.status === 'deleted').length;
+    const errors = data.results.filter(r => r.status === 'error').length;
+    if (errors > 0) toast(`⚠️ ${deleted} excluídas, ${errors} erro(s)`, errors > 0 ? 'error' : '');
+    else toast(`🗑️ ${deleted} música(s) excluída(s)`);
+    // Remove from local list
+    allMusic = allMusic.filter(m => !selected.find(s => s.name === m.name));
+    renderMusic();
+  } catch (e) {
+    // Revert optimistic update
+    selected.forEach(m => m._pendingDelete = false);
+    renderMusic();
+    toast('Erro ao excluir: ' + e.message, 'error');
+  } finally {
+    document.getElementById('confirmDeleteBtn').disabled = false;
+  }
+}
+
+// ─── Download request ──────────────────────────────────────────────────────
+async function doDownload() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { toast('Cole um link do YouTube primeiro!', 'warn'); return; }
+
+  const btn = document.getElementById('downloadBtn');
+  const log = document.getElementById('progressLog');
+  btn.disabled = true;
+  btn.textContent = 'Baixando...';
+  log.classList.add('visible');
+  log.innerHTML = '';
+
+  try {
+    const res = await fetch(`http://localhost:${SERVER_PORT}/api/download`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await res.json();
+
+    if (data.skipped) {
+      appendLog(`⏭️  Já existe: ${data.videoId}`, 'skipped');
+    } else if (data.total !== undefined) {
+      // Playlist
+      const done = data.results.filter(r => r.status === 'done').length;
+      const skipped = data.results.filter(r => r.status === 'skipped').length;
+      const errors = data.results.filter(r => r.status === 'error').length;
+      appendLog(`📋 Playlist: ${done} baixadas, ${skipped} puladas, ${errors} erros`, 'done');
+    } else if (data.success) {
+      appendLog(`✅  ${data.filename}`, 'done');
+      document.getElementById('urlInput').value = '';
+    } else {
+      appendLog(`❌  ${data.error}`, 'error');
+    }
+  } catch (e) {
+    appendLog(`❌  Erro de conexão: ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Baixar';
+  }
+}
+
+function appendLog(text, cls) {
+  const log = document.getElementById('progressLog');
+  const line = document.createElement('div');
+  line.className = `log-line ${cls || ''}`;
+  line.textContent = text;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ─── GitHub Actions ────────────────────────────────────────────────────────
+function openActions() {
+  window.open(`https://github.com/${OWNER}/${REPO}/actions/workflows/download.yml`, '_blank');
+  toast('Vá em "Run workflow" e cole a URL do YouTube', 'warn');
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────
+function formatName(n) {
+  return (n || '').replace(/^[a-zA-Z0-9_-]{11}_/, '').replace(/\.mp3$/i, '').replace(/_/g, ' ');
+}
+function formatSize(b) {
+  if (!b) return '';
+  if (b < 1024*1024) return `${(b/1024).toFixed(0)} KB`;
+  return `${(b/(1024*1024)).toFixed(1)} MB`;
+}
+function escAttr(s) { return (s||'').replace(/'/g, "\\'"); }
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function toast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// Close modal on overlay click
+document.getElementById('deleteModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+// Start
+init();
+</script>
+</body>
+</html>
