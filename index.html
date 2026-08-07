@@ -20,6 +20,9 @@
     .btn:hover { background: #5a52d5; }
     .btn-green { background: #2a9d6a; }
     .btn-green:hover { background: #228b5a; }
+    .btn-download { background: #d4a017; color: #1a1a2e; font-weight: 700; }
+    .btn-download:hover { background: #c09015; }
+    .btn-download.visible { display: block !important; }
     .btn:disabled { background: #444; cursor: not-allowed; }
     .info { background: #1a1a2e; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; border: 1px solid #2a2a4a; font-size: 0.85rem; color: #888; line-height: 1.6; }
     .info a { color: #6c63ff; }
@@ -54,9 +57,10 @@
       <h2>➕ Solicitar Nova Música</h2>
       <input type="text" id="urlInput" class="add-url" placeholder="Cole o link do YouTube (vídeo ou playlist)..." />
       <div class="actions">
-        <button class="btn btn-green" onclick="openGithubAction()">🚀 Pedir Download (GitHub Actions)</button>
+        <button class="btn btn-green" onclick="openGithubAction()">🚀 Baixar via GitHub Actions</button>
+        <button class="btn btn-download" id="downloadSelectedBtn" onclick="downloadSelected()" style="display:none;">📥 Baixar Selecionadas</button>
       </div>
-      <p style="margin-top:8px; font-size:0.78rem; color:#555;">O download será feito via GitHub Actions e adicionado automaticamente ao repo. Pode demorar alguns minutos.</p>
+      <p style="margin-top:8px; font-size:0.78rem; color:#555;">O botão GitHub Actions abre o workflow — cole a URL do YouTube lá e clique "Run workflow". A música aparece no repo em minutos!</p>
     </div>
 
     <div class="info">
@@ -136,6 +140,7 @@
       const item = document.querySelector(`[data-idx="${i}"]`);
       if (item) item.classList.toggle('selected', selectedIds.has(i));
       document.getElementById('selectedCount').textContent = `${selectedIds.size} selecionadas`;
+      document.getElementById('downloadSelectedBtn').classList.toggle('visible', selectedIds.size > 0);
     }
 
     function toggleSelectAll() {
