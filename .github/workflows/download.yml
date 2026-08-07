@@ -4,9 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       youtube_url:
-        description: 'YouTube URL (video or playlist)'
+        description: 'YouTube URL (video ou playlist)'
         required: true
         type: string
+        default: ''
 
 jobs:
   download:
@@ -23,54 +24,42 @@ jobs:
       - name: Install yt-dlp
         run: pip install yt-dlp
 
-      - name: Get playlist info
-        id: playlist
+      - name: Detect type
+        id: type
         run: |
           URL="${{ inputs.youtube_url }}"
-          if echo "$URL" | grep -q "list="; then
-            echo "type=playlist" >> $GITHUB_OUTPUT
-            echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          if echo "$URL" | grep -qE '(\?|&)list='; then
+            echo "mode=playlist" >> $GITHUB_OUTPUT
           else
-            echo "type=single" >> $GITHUB_OUTPUT
-            echo "url=$URL" >> $GITHUB_OUTPUT
+            echo "mode=single" >> $GITHUB_OUTPUT
           fi
 
-      - name: Download single video
-        if: steps.playlist.outputs.type == 'single'
+      - name: Download
         run: |
           yt-dlp \
-            --no-playlist \
+            --newline \
             -x --audio-format mp3 --audio-quality 0 \
-            --embed-metadata \
-            --no-progress \
+            --embed-metadata --no-progress \
             -o "%(id)s_%(title)s.%(ext)s" \
             "${{ inputs.youtube_url }}"
         shell: bash
 
-      - name: Download playlist
-        if: steps.playlist.outputs.type == 'playlist'
+      - name: List downloaded files
         run: |
-          yt-dlp \
-            --flat-playlist \
-            -x --audio-format mp3 --audio-quality 0 \
-            --embed-metadata \
-            --no-progress \
-            -o "%(id)s_%(title)s.%(ext)s" \
-            "${{ inputs.youtube_url }}"
-        shell: bash
+          echo "### Arquivos baixados"
+          ls -lh *.mp3 2>/dev/null || echo "(nenhum)"
 
-      - name: Show downloaded files
-        run: ls -lh *.mp3 2>/dev/null || echo "No MP3 files found"
-
-      - name: Commit and push
+      - name: Commit & push
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+          # Add all new mp3s
           git add *.mp3 2>/dev/null || true
-          git add -u 2>/dev/null || true
           if git diff --staged --quiet; then
-            echo "No new files to commit"
+            echo "No_files_to_commit"
           else
             git commit -m "Add music: ${{ inputs.youtube_url }}"
             git push
+            echo "Pushed"
           fi
