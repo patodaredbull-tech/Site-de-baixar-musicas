@@ -45,7 +45,20 @@ function getVideoId(url) {
 }
 
 function isPlaylistUrl(url) {
+  // music.youtube.com playlists have ?list= but no ?v=
   return /[?&]list=/.test(url) && !/[?&]v=/.test(url) && !/\/shorts\//.test(url);
+}
+
+function ytArgs(url) {
+  // yt-dlp args: try harder for music.youtube.com and age-gated videos
+  const base = [
+    '--newline', '--no-playlist', '--no-update',
+    '-x', '--audio-format', 'mp3', '--audio-quality', '0',
+    '--embed-metadata', '--no-progress',
+    '--extractor-args', 'youtube:player_client=web,default'
+  ];
+  // yt-dlp handles music.youtube.com natively, no extra args needed
+  return base;
 }
 
 // ─── SSE clients ───────────────────────────────────────────────────────────
@@ -119,15 +132,9 @@ async function ghGetAllMp3s() {
 
 async function downloadSingle(url, videoId) {
   return new Promise((resolve, reject) => {
-    const safeTitle = `${videoId}_unknown`;
     const outputTemplate = path.join(DOWNLOAD_DIR, '%(id)s_%(title)s.%(ext)s');
-    const proc = spawn('yt-dlp', [
-      '--newline', '--no-playlist', '--no-update',
-      '-x', '--audio-format', 'mp3', '--audio-quality', '0',
-      '--embed-metadata', '--no-progress',
-      '-o', outputTemplate,
-      url
-    ], { shell: true });
+    const args = [...ytArgs(url), '-o', outputTemplate, url];
+    const proc = spawn('yt-dlp', args, { shell: true });
 
     let stderr = '';
     proc.stderr.on('data', d => { stderr += d.toString(); });
@@ -194,10 +201,19 @@ app.post('/api/download', async (req, res) => {
     try {
       sseSend('playlist-start', { url });
       const infoData = await new Promise((resolve, reject) => {
-        const p = spawn('yt-dlp', ['--flat-playlist', '-J', url], { shell: true });
+        const p = spawn('yt-dlp', [
+          '--flat-playlist', '-J', '--no-warnings',
+          '--extractor-args', 'youtube:player_client=web,default',
+          url
+        ], { shell: true });
         let d = '';
         p.stdout.on('data', x => d += x.toString());
-        p.on('close', code => code === 0 ? resolve(d) : reject(new Error('Failed to get playlist info')));
+        p.stderr.on('data', () => { /* suppress yt-dlp warnings */ });
+        p.on('close', code => {
+          // yt-dlp exits 1 on playlist fetch even on success (due to warnings) — parse stdout if we got data
+          if (d.trim()) resolve(d);
+          else reject(new Error(d || `yt-dlp exited ${code}`));
+        });
         p.on('error', reject);
       });
       const playlist = JSON.parse(infoData);
@@ -333,6 +349,23 @@ app.post('/api/delete', async (req, res) => {
 
 // Serve downloads
 app.use('/downloads', express.static(DOWNLOAD_DIR));
+
+// POST /api/sync — sync all local files to GitHub
+app.post('/api/sync', async (req, res) => {
+  try {
+    const files = fs.readdirSync(DOWNLOAD_DIR)
+      .filter(f => f.endsWith('.mp3') && f !== 'downloaded_ids.json');
+    const results = [];
+    for (const file of files) {
+      const content = fs.readFileSync(path.join(DOWNLOAD_DIR, file));
+      const status = await ghUploadFile(content, file, `Add: ${file}`);
+      results.push({ file, status });
+    }
+    res.json({ synced: results.length, results });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`\n🎵 Music Downloader → http://localhost:${PORT}`);
