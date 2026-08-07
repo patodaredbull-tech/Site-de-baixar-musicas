@@ -538,8 +538,11 @@ async function doDelete() {
 
 // ─── Download request ──────────────────────────────────────────────────────
 async function doDownload() {
-  const url = document.getElementById('urlInput').value.trim();
+  let url = (document.getElementById('urlInput').value || '').trim();
   if (!url) { toast('Cole um link do YouTube primeiro!', 'warn'); return; }
+
+  // Normalize music.youtube.com → youtube.com (yt-dlp handles both but let's be consistent)
+  url = url.replace(/^https?:\/\/music\.youtube\.com/, 'https://www.youtube.com');
 
   const btn = document.getElementById('downloadBtn');
   const log = document.getElementById('progressLog');
